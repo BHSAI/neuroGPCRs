@@ -1,0 +1,89 @@
+# Configuration file for neuroGPCRs DTI Prediction Models
+
+# ---------------------------------------------------------------------------
+# Data paths (shared by all models)
+# ---------------------------------------------------------------------------
+data:
+  data_dir: "data"
+  train_file: "training_set.csv"
+  val_file: "validation_set.csv"
+  test_unseen_protein: "test_set_unseen_protein.csv"
+  test_unseen_ligand: "test_set_unseen_ligands.csv"
+
+# ---------------------------------------------------------------------------
+# Device (shared by all models)
+# ---------------------------------------------------------------------------
+device:
+  use_cuda: true
+
+# ---------------------------------------------------------------------------
+# Output (shared by all models)
+# ---------------------------------------------------------------------------
+output:
+  results_dir: "results"
+
+# ---------------------------------------------------------------------------
+# Shared training settings
+#   seeds    – one full run per seed; final results reported as mean ± std
+#   num_workers – DataLoader workers
+# ---------------------------------------------------------------------------
+training:
+  seeds: [42, 123, 456, 789, 1024]
+  num_workers: 0
+
+  # CosSim & Transformer hyperparams (train_cosine.py / train_transformer.py)
+  num_epochs: 50
+  batch_size: 32
+  learning_rate: 0.0001
+  weight_decay: 0.01
+  early_stopping_patience: 10
+
+# ---------------------------------------------------------------------------
+# Pre-computed-embedding model architecture  (train_cosine.py / train_transformer.py / train_xgb.py)
+# ---------------------------------------------------------------------------
+model:
+  # Labels used by extract_features to pick the right HDF5 file
+  protein_encoder: "ProtBert"
+  molecule_encoder: "MolFormer"
+
+  # Shared projection dimension
+  latent_dim: 1024
+
+  # Transformer-only parameters (ignored by train_cosine.py)
+  n_heads: 4
+  n_layers: 2
+  dropout: 0.1
+
+# ---------------------------------------------------------------------------
+# XGBoost  (train_xgb.py)
+#   Projection layer is randomly initialised (Xavier) and frozen;
+#   XGBoost learns on the concatenated projected features.
+# ---------------------------------------------------------------------------
+xgboost:
+  n_estimators: 100
+  max_depth: 6
+  learning_rate: 0.3
+
+# ---------------------------------------------------------------------------
+# Cross-Attention  (train_cross_attention_unified.py)
+#   Encoder freezing is controlled via CLI flags:
+#     --freeze_protein   –  freeze ProtBert
+#     --freeze_molecule  –  freeze MolFormer
+# ---------------------------------------------------------------------------
+finetune:
+  protein_model: "Rostlab/prot_bert"
+  molecule_model: "ibm/MolFormer-XL-both-10pct"
+
+  d_model: 512
+  n_heads: 4
+  dropout: 0.1
+
+  num_epochs: 10
+  batch_size: 8
+  learning_rate: 0.00001
+  weight_decay: 0.00001
+
+  max_protein_len: 1024
+  max_molecule_len: 512
+
+  early_stopping_patience: 5
