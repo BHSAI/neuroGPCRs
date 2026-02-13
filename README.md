@@ -263,12 +263,13 @@ Projects protein and ligand embeddings to a shared latent space, concatenates th
 
 If you use this code in your research, please cite:
 
+Dey, S et al. (2026) Evaluation of Deep Learning Architectures for Predicting Ligand Interactions with Neurologically Relevant GPCRs, Manuscript under review
+
 ```bibtex
 @article{dey2024neurogpcrs,
   title={Evaluation of Deep Learning Architectures for Predicting Ligand Interactions with Neurologically Relevant GPCRs},
   author={Dey, Souvik and Lu, Pinyi and Wallqvist, Anders and AbdulHameed, Mohamed Diwan M.},
   journal={In preparation},
   year={2026},
-  institution={DoD Biotechnology HPC Software Applications Institute}
 }
 ```
