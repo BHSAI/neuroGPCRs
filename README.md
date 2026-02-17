@@ -269,7 +269,7 @@ Dey, S et al. (2026) Evaluation of Deep Learning Architectures for Predicting Li
 @article{dey2024neurogpcrs,
   title={Evaluation of Deep Learning Architectures for Predicting Ligand Interactions with Neurologically Relevant GPCRs},
   author={Dey, Souvik and Lu, Pinyi and Wallqvist, Anders and AbdulHameed, Mohamed Diwan M.},
-  journal={In preparation},
+  journal={Manuscript under review},
   year={2026},
 }
 ```
