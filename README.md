@@ -126,6 +126,17 @@ python scripts/train_cross_attention_unified.py
 - `--freeze_molecule`: Freeze MolFormer encoder weights
 - `--config`: Path to configuration file (default: `config.yaml`)
 
+## Optional analyses
+
+| Script | Purpose |
+|---|---|
+| `scripts/representation_analysis.py` | Embedding drift, joint UMAP, effective-rank collapse, and layer-wise Frobenius drift of the fine-tuned ProtBERT encoder. |
+| `scripts/calibration_analysis.py` | Reliability diagrams, ECE, and Brier scores on the ligand-selectivity subset. |
+| `scripts/per_ligand_analysis.py` | Per-ligand AUROC/AUPRC, top-k sensitivity, and active–inactive probability gap. |
+
+Each takes `--results_dir results` (or a similar flag) and writes its
+outputs under that directory.
+
 ### Making Predictions (Inference)
 
 Once you have a trained model, you can predict GPCR-ligand interactions for new compounds using the `predict_interactions.py` script:
