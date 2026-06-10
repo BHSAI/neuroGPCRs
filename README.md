@@ -126,7 +126,7 @@ python scripts/train_cross_attention_unified.py
 - `--freeze_molecule`: Freeze MolFormer encoder weights
 - `--config`: Path to configuration file (default: `config.yaml`)
 
-## Optional analyses
+### Optional analyses
 
 | Script | Purpose |
 |---|---|
