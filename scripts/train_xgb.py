@@ -1,4 +1,4 @@
-"""Training script for XGBoost DTI model."""
+"""Training script for XGBoost DTI model with Optuna based HPO"""
 
 import sys
 import os
@@ -10,6 +10,8 @@ import pandas as pd
 import yaml
 import argparse
 import xgboost as xgb
+import optuna
+from sklearn.metrics import roc_auc_score
 from pathlib import Path
 
 from src.models.xgb_model import DTIFeatureExtractor
@@ -32,7 +34,36 @@ def extract_features_for_xgb(model, dataloader, device):
     return np.vstack(all_features), np.concatenate(all_labels)
 
 
-def main(config_path: str = "config.yaml", protein_feat: str = None, mol_feat: str = None):
+def optimize_xgb_hyperparams(train_X, train_y, val_X, val_y, n_trials=50, seed=42):
+    """Optuna TPE search over XGBoost hyperparameters; maximizes validation ROC-AUC."""
+    def objective(trial):
+        params = {
+            "n_estimators": trial.suggest_int("n_estimators", 50, 500),
+            "max_depth": trial.suggest_int("max_depth", 3, 12),
+            "learning_rate": trial.suggest_float("learning_rate", 1e-3, 0.5, log=True),
+            "subsample": trial.suggest_float("subsample", 0.5, 1.0),
+            "colsample_bytree": trial.suggest_float("colsample_bytree", 0.5, 1.0),
+            "min_child_weight": trial.suggest_int("min_child_weight", 1, 10),
+            "gamma": trial.suggest_float("gamma", 0.0, 5.0),
+            "reg_alpha": trial.suggest_float("reg_alpha", 1e-8, 10.0, log=True),
+            "reg_lambda": trial.suggest_float("reg_lambda", 1e-8, 10.0, log=True),
+        }
+        model = xgb.XGBClassifier(**params, eval_metric="logloss", random_state=seed)
+        model.fit(train_X, train_y, eval_set=[(val_X, val_y)], verbose=False)
+        return roc_auc_score(val_y, model.predict_proba(val_X)[:, 1])
+
+    study = optuna.create_study(direction="maximize", sampler=optuna.samplers.TPESampler(seed=seed))
+    study.optimize(objective, n_trials=n_trials, show_progress_bar=True)
+
+    print(f"\nBest validation ROC-AUC: {study.best_value:.4f}")
+    print("Best hyperparameters:")
+    for k, v in study.best_params.items():
+        print(f"  {k}: {v}")
+    return study.best_params
+
+
+def main(config_path: str = "config.yaml", protein_feat: str = None, mol_feat: str = None,
+         optimize: bool = False, n_trials: int = 50):
     """Main training function."""
 
     # Load configuration
@@ -99,7 +130,27 @@ def main(config_path: str = "config.yaml", protein_feat: str = None, mol_feat: s
     results_dir.mkdir(exist_ok=True)
 
     # XGBoost hyperparameters
-    xgb_cfg = config.get('xgboost', {})
+    xgb_cfg = dict(config.get('xgboost', {}))
+
+    # Optional: Optuna hyperparameter search (uses a fixed seed for the projection
+    # so all trials share the same features). Best params are then used across
+    # all multi-seed runs below.
+    if optimize:
+        print(f"\n=== Running Optuna hyperparameter search ({n_trials} trials) ===")
+        opt_seed = config['training'].get('seeds', [42])[0]
+        torch.manual_seed(opt_seed)
+        opt_extractor = DTIFeatureExtractor(
+            drug_dim=drug_dim,
+            target_dim=target_dim,
+            latent_dim=config['model']['latent_dim']
+        ).to(device)
+        opt_train_X, opt_train_y = extract_features_for_xgb(opt_extractor, train_loader, device)
+        opt_val_X, opt_val_y = extract_features_for_xgb(opt_extractor, val_loader, device)
+        best_params = optimize_xgb_hyperparams(
+            opt_train_X, opt_train_y, opt_val_X, opt_val_y,
+            n_trials=n_trials, seed=opt_seed,
+        )
+        xgb_cfg.update(best_params)
 
     # Multi-seed training
     seeds = config['training'].get('seeds', [42, 123, 456, 789, 1024])
@@ -125,12 +176,15 @@ def main(config_path: str = "config.yaml", protein_feat: str = None, mol_feat: s
 
         # Train XGBoost
         print("Training XGBoost...")
+        xgb_params = {k: v for k, v in xgb_cfg.items()
+                      if k not in ('eval_metric', 'random_state')}
+        xgb_params.setdefault('n_estimators', 100)
+        xgb_params.setdefault('max_depth', 6)
+        xgb_params.setdefault('learning_rate', 0.3)
         xgb_model = xgb.XGBClassifier(
-            n_estimators=xgb_cfg.get('n_estimators', 100),
-            max_depth=xgb_cfg.get('max_depth', 6),
-            learning_rate=xgb_cfg.get('learning_rate', 0.3),
+            **xgb_params,
             eval_metric='logloss',
-            random_state=seed
+            random_state=seed,
         )
 
         xgb_model.fit(
@@ -175,8 +229,13 @@ def main(config_path: str = "config.yaml", protein_feat: str = None, mol_feat: s
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Train XGBoost DTI model")
     parser.add_argument("--config", type=str, default="config.yaml", help="Path to config file")
-    parser.add_argument("--protein_feat", type=str, default="ProtBert_features.h5", help="Path to protein features h5 file")
-    parser.add_argument("--mol_feat", type=str, default="MolFormer_features.h5", help="Path to molecule features h5 file")
+    parser.add_argument("--protein_feat", type=str, default="data/ProtBert_features.h5", help="Path to protein features h5 file")
+    parser.add_argument("--mol_feat", type=str, default="data/MolFormer_features.h5", help="Path to molecule features h5 file")
+    parser.add_argument("--optimize", action="store_true", help="Run Optuna hyperparameter search before training")
+    parser.add_argument("--n_trials", type=int, default=50, help="Number of Optuna trials when --optimize is set")
 
     args = parser.parse_args()
-    main(args.config, args.protein_feat, args.mol_feat)
+    main(args.config, args.protein_feat, args.mol_feat, args.optimize, args.n_trials)
+
+
+
