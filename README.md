@@ -140,7 +140,7 @@ outputs under that directory.
 
 ### Making Predictions (Inference)
 
-Once you have a trained model, you can predict GPCR-ligand interactions for new compounds using the `predict_interactions.py` script:
+Once you have a trained cross-attention model, you can predict GPCR-ligand interactions for new compounds using the `predict_interactions.py` script:
 
 #### Predict for a single SMILES:
 ```bash
