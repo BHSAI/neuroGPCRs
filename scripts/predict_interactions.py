@@ -27,7 +27,7 @@ def load_gpcrs_from_training(data_path: str = "data/training_set.csv"):
     Returns:
         DataFrame with UniProt IDs and protein sequences
     """
-    df = pd.read_csv(data_path, index_col=0)
+    df = pd.read_csv(data_path)
 
     # Get unique GPCR proteins
     gpcrs = df[['UniProt', 'Target Sequence']].drop_duplicates()
