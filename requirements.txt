@@ -1,12 +1,12 @@
 # Core dependencies
-torch==2.5.1
+torch==2.13.0
 numpy==1.26.4
 pandas==2.2.3
 scikit-learn==1.5.2
 scipy==1.15.3
 
 # Deep learning and transformers
-transformers==4.48.0
+transformers==5.14.1
 sentencepiece==0.2.0
 
 # Data handling
