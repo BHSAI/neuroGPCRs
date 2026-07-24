@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 import numpy as np
 from typing import Optional, Tuple, Dict
-from transformers import AutoModel
+from transformers import AutoModel, BertForMaskedLM, BertModel
 
 
 class CrossAttentionLayer(nn.Module):
@@ -120,7 +120,7 @@ class DTIFineTuneCrossAttention(nn.Module):
 
         # Load pre-trained encoders
         print(f"Loading protein encoder: {protein_model_name}")
-        self.protein_encoder = AutoModel.from_pretrained(protein_model_name)
+        self.protein_encoder = BertModel.from_pretrained(protein_model_name, force_download=True, use_safetensors=True)
         protein_hidden_size = self.protein_encoder.config.hidden_size
 
         print(f"Loading molecule encoder: {molecule_model_name}")

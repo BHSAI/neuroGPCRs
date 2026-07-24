@@ -14,7 +14,7 @@ import pandas as pd
 import yaml
 import argparse
 from pathlib import Path
-from transformers import AutoTokenizer
+from transformers import BertTokenizer, AutoModelForMaskedLM, AutoTokenizer
 from tqdm import tqdm
 
 from src.models.cross_attention_finetune import DTIFineTuneCrossAttention
@@ -79,7 +79,7 @@ def predict_interactions(
 
     # Load tokenizers
     print("Loading tokenizers...")
-    protein_tokenizer = AutoTokenizer.from_pretrained(protein_model_name, do_lower_case=False)
+    protein_tokenizer = BertTokenizer.from_pretrained(protein_model_name, do_lower_case=False)
     molecule_tokenizer = AutoTokenizer.from_pretrained(molecule_model_name, trust_remote_code=True)
 
     # Load model
@@ -94,7 +94,24 @@ def predict_interactions(
     ).to(device)
 
     # Load trained weights
-    model.load_state_dict(torch.load(model_path, map_location=device))
+#    model.load_state_dict(torch.load(model_path, map_location=device))
+    raw = torch.load(model_path, map_location=device)
+
+    remap = {"mol_encoder.": "molecule_encoder."}   # add more pairs if needed
+    state = {}
+    for k, v in raw.items():
+        new_k = k
+        for old, new in remap.items():
+            if new_k.startswith(old):
+                new_k = new + new_k[len(old):]
+                break
+        state[new_k] = v
+
+    missing, unexpected = model.load_state_dict(state, strict=False)
+    print(f"[load_state_dict] missing={len(missing)}, unexpected={len(unexpected)}")
+    if missing:      print("  missing:", missing[:5], "…" if len(missing) > 5 else "")
+    if unexpected:   print("  unexpected:", unexpected[:5], "…" if len(unexpected) > 5 else "")
+
     model.eval()
 
     print(f"Model loaded successfully!")
